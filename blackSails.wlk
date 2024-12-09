@@ -8,7 +8,7 @@ class Embarcacion{
 
     method poderDeDanio() = tripulacion.sum{tripulante => tripulante.danioArmasTotal()} + caniones.sum{canion => canion.danio()}
     method eliminarTripulantesCobardes(){
-        const lista = tripulacion.losMasCobardes().take(3)
+        const lista = self.losMasCobardes().take(3)
         tripulacion.forEach{tripulante => if(lista.contains(tripulante)){tripulacion.remove(tripulante)}}
     }
     method losMasCobardes() = self.tripulantesSincapitanNiContramaestre().sortedBy{tripulante1,tripulante2 => tripulante2.corajeTotal() > tripulante1.corajeTotal()}
@@ -21,13 +21,20 @@ class Embarcacion{
     method oceano() = ubicacion.get(0)
     method coordenadax() = ubicacion.get(1)
     method coordenaday() = ubicacion.get(2)
+    method quitarTripulante(pirata) = tripulacion.remove(pirata)
+    method restarCorajeTripulantes(num) = tripulacion.forEach{tripulante => tripulante.reducirCoraje(num)}
+    method los5MasCorajudos() = self.losMasCobardes().reverse().take(5)
+    method quitarLos5MasCorajudos(){
+        const lista = self.los5MasCorajudos()
+        tripulacion.forEach{tripulante => if(lista.contains(tripulante)){tripulacion.remove(tripulante)}}
+    }
 }
 
 
 class Tripulante{
-    const tipoTripulante
+    var tipoTripulante
     var corajeBase
-    const property corajeTotal
+    var property corajeTotal
     var property armas
     const property inteligencia
 
@@ -36,20 +43,23 @@ class Tripulante{
     method aumentarCorajeBase(num) {corajeBase += num}
     method danioArmasTotal() = armas.sum{arma => arma.danio()}
     method tipoTripulante() = tipoTripulante.nombre()
-
+    method quitarArmas() = armas.clear()
+    method agregarArma(arma) = armas.add(arma)
+    method cambiarATripulacionGeneral() {tipoTripulante = tripulacionGeneral}
+    method reducirCoraje(num){corajeTotal -= num}
     method min(a,b){if(a>b) return b else return a}
     method max(a,b){if(a<b) return b else return a}
 }
 
-class Capitan{
+object capitan{
     const property nombre = "capitan"
 }
 
-class Contramaestre{
+object contramaestre{
     const property nombre = "contramaestre"
 }
 
-class TripulacionGeneral{
+object tripulacionGeneral{
     const property nombre = "tripulante"
 }
 // const pepe = new Tripulante(tipoTripulante = new Capitan(),corajeBase= 0,corajeTotal=0,armas=[],inteligencia=0)
@@ -94,8 +104,7 @@ class Insulto{
 }
 
 class Contienda{
-    const property requisito
-    const property efecto
+    const property tipoContienda
     const property valorDistancia
 
 method puedenEntrarEnCombate(embarcacion1,embarcacion2){
@@ -105,10 +114,18 @@ method puedenEntrarEnCombate(embarcacion1,embarcacion2){
 }
 
 method contienda(embarcacion1,embarcacion2){
-    if(requisito.cumple(embarcacion1,embarcacion2)){
-        efecto.cumplir(embarcacion1,embarcacion2)
+    if(tipoContienda.cumple(embarcacion1,embarcacion2)){
+        tipoContienda.efecto().cumplir(embarcacion1,embarcacion2)
     }
 }
+}
+
+class TipoContienda{
+    const property requisito
+    const property efecto
+
+    method cumple(embarcacion1,embarcacion2) = requisito.cumple(embarcacion1,embarcacion2)
+    method cumplir(embarcacion1,embarcacion2) = efecto.cumplir(embarcacion1,embarcacion2)
 }
 
 object efectoClasicaBatalla{
@@ -137,14 +154,63 @@ class CriterioInteligencia{
     method cumple(embarcacion1,embarcacion2) = embarcacion1.tieneTripulanteInteligente(cant)
 }
 
-object clasicaBatalla{
-    method batalla(embarcacion1,embarcacion2){
-        if(embarcacion1.poderDeDanio() > embarcacion2.poderDeDanio()){
-            embarcacion1.tripulacion().aumentarCoraje(5)
-            embarcacion2.eliminarTripulantesCobardes(3)
-            embarcacion2.capitan(embarcacion1.contramaestre())
-            embarcacion1.contramaestre(embarcacion1.elMasCorajudo())
-            embarcacion2.agregarTripulacion(embarcacion1.los3MasCorajudos())
+//Contiendas
+
+const clasicaBatalla = new Contienda(tipoContienda= new TipoContienda(requisito = criterioPoderEmbarcacion,efecto = efectoClasicaBatalla),valorDistancia = 0)
+const negociacion = new Contienda(tipoContienda = new TipoContienda(requisito = new CriterioInteligencia(cant = 50),efecto= efectoNegociacion),valorDistancia= 0)
+
+//Motin
+
+object motin{
+    method motin(barco){
+        if(barco.capitan().corajeTotal() < barco.capitan().corajeTotal()){
+            barco.quitarTripulante(barco.capitan())
+            barco.capitan(barco.contramaestre())
+            barco.contramaestre(barco.elMasCorajudo())
+        }else{
+            barco.contramaestre().quitarArmas()
+            barco.contramaestre().agregarArma(espadaDesafilada)
+            barco.contramaestre(barco.elMasCorajudo())
         }
+    }
+}
+//armas
+const espadaDesafilada = new Espada(danio = 1)
+
+// bestias
+
+class Bestia{
+    const property fuerza
+    const property efecto
+
+    method atacar(barco) = efecto.cumplir(barco)
+}
+
+class Encuentro{
+    method encuentro(bestia,barco){
+        if(bestia.fuerza() > barco.poderDeDanio()){
+            bestia.atacar(barco)
+        }
+    }
+}
+
+//efectos
+object efectoballenasAzules{
+    method cumplir(barco){
+        barco.caniones().all{canion => 8.times({i => canion.envejecerCanion()})}
+    }
+}
+
+class EfectoTiburonesBlancos{
+    const property num
+
+    method cumplir(barco){
+        barco.tripulacion().restarCorajeTripulantes(num)
+    }
+}
+
+object efectoKraken{
+    method cumplir(barco){
+        barco.quitarLos5MasCorajudos()
     }
 }
